@@ -56,8 +56,9 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %   Example: (Square, with size function point and line sources)
 %      dcircle = @(p,xc,yc,r) sqrt((p(:,1)-xc).^2+(p(:,2)-yc).^2)-r;
 %      fd = @(p) -min(min(min(p(:,2),1-p(:,2)),p(:,1)),1-p(:,1));
+%      dpolygon = @(p,v) feval('l_dpolygon',p,v);
 %      fh = @(p) min(min(0.01+0.3*abs(dcircle(p,0,0,0)), ...
-%                        0.025+0.3*abs(dpolygon(p,[0.3,0.7; 0.7,0.5]))),0.15);
+%                        0.025+0.3*abs(dpolygon(p,[0.3,0.7;0.7,0.5;0.3,0.7]))),0.15);
 %      [p,t] = distmesh( fd, fh, 0.01, [0,0;1,1], [0,0;1,0;0,1;1,1] );
 %
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
@@ -216,9 +217,9 @@ while( it<it_max )
       % Describe each edge by a unique edge_pairs of nodes.
       if( IALG<=1 )
         edge_pairs = zeros(0,2);
-        localedge_pairss = nchoosek(1:(n_sdim+1),2);
-        for ii=1:size(localedge_pairss,1)
-          edge_pairs = [edge_pairs;t(:,localedge_pairss(ii,:))];
+        localedge_pairs = nchoosek(1:(n_sdim+1),2);
+        for ii=1:size(localedge_pairs,1)
+          edge_pairs = [edge_pairs;t(:,localedge_pairs(ii,:))];
         end
         edge_pairs = unique(sort(edge_pairs,2),'rows');
       else
@@ -570,8 +571,7 @@ axis equal
 function [ dist ] = l_dpolygon( p, v )
 
 n_p = size(p,1);
-n_s = size(v,1);
-v = [v;v(1,:)];
+n_s = size(v,1)-1;
 
 dist = zeros(n_s,n_p);
 for i_s=1:n_s

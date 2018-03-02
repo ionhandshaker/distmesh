@@ -23,35 +23,37 @@ Description
 
 DistMesh is a simple MATLAB and
 [GNU Octave](https://www.gnu.org/software/octave/) code for generation
-of unstructured triangular and tetrahedral meshes. It was developed by
-Per-Olof Persson and Gilbert Strang in the Department of Mathematics
-at MIT. A detailed description of the program is provided in the SIAM
-Review paper, see documentation below.
+of unstructured 2D triangular and 3D tetrahedral meshes. It was
+developed by Per-Olof Persson and Gilbert Strang in the Department of
+Mathematics at MIT. A detailed description of the program is provided
+in the SIAM Review paper and other references linked below.
 
 One reason that the code is short and simple is that the geometries
-are specified by Signed Distance Functions. These give the shortest
-distance from any point in space to the boundary of the domain. The
-sign is negative inside the region and positive outside. A simple
-example is the unit circle in 2D, which has the distance function
-_d = r-1_, where _r_ is the distance from the origin. For more
-complicated geometries the distance function can be computed by
-interpolation between values on a grid, a common representation
-for level set methods.
+are specified by Signed Distance Functions (level set). These give the
+shortest distance from any point in space to the boundary of the
+domain. The sign is negative inside the region and positive outside. A
+simple example is the unit circle in two dimensions, which has the
+distance function _d = r-1_, where _r_ is the distance from the
+origin. For more complicated geometries the distance function can be
+computed by interpolation between values on a grid, a common
+representation for level set methods.
 
-For the actual mesh generation, DistMesh uses the Delaunay
-triangulation routine in MATLAB/Octave and tries to optimize the node
-locations by a force-based smoothing procedure. The topology is
+For the mesh generation procedure, DistMesh uses the Delaunay
+triangulation routine in MATLAB and Octave and tries to optimize the
+node locations by a force-based smoothing procedure. The topology is
 regularly updated by Delaunay. The boundary points are only allowed to
 move tangentially to the boundary by projections using the distance
-function. This iterative procedure typically results in very
-well-shaped meshes.
+function. This iterative procedure typically results in very uniform
+and well-shaped high quality meshes.
 
 
 Examples
 --------
 
-To use the code, simply download the source code and run it from
-MATLAB or Octave. To run the examples below, type
+To use the code, simply download the
+[distmesh](https://github.com/precisesimulation/distmesh/blob/master/distmesh.m)
+source code and run it in MATLAB or Octave. To run the collection of
+examples below, type
 [distmesh_demo](https://github.com/precisesimulation/distmesh/blob/master/distmesh_demo.m)
 
 - Example 1: Uniform mesh on unit circle
@@ -96,8 +98,9 @@ MATLAB or Octave. To run the examples below, type
 
         dcircle = @(p,xc,yc,r) sqrt((p(:,1)-xc).^2+(p(:,2)-yc).^2)-r;
         fd = @(p) -min(min(min(p(:,2),1-p(:,2)),p(:,1)),1-p(:,1));
+        dpolygon = @(p,v) feval('l_dpolygon',p,v);
         fh = @(p) min(min(0.01+0.3*abs(dcircle(p,0,0,0)), ...
-                          0.025+0.3*abs(dpolygon(p,[0.3,0.7; 0.7,0.5]))),0.15);
+                          0.025+0.3*abs(dpolygon(p,[0.3,0.7;0.7,0.5;0.3,0.7]))),0.15);
         [p,t] = distmesh( fd, fh, 0.01, [0,0;1,1], [0,0;1,0;0,1;1,1] );
 
         patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
