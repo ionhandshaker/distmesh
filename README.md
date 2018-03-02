@@ -21,8 +21,9 @@ GUI together with the
 Description
 -----------
 
-DistMesh is a simple MATLAB and GNU Octave code for generation of
-unstructured triangular and tetrahedral meshes. It was developed by
+DistMesh is a simple MATLAB and
+[GNU Octave](https://www.gnu.org/software/octave/) code for generation
+of unstructured triangular and tetrahedral meshes. It was developed by
 Per-Olof Persson and Gilbert Strang in the Department of Mathematics
 at MIT. A detailed description of the program is provided in the SIAM
 Review paper, see documentation below.
@@ -49,8 +50,9 @@ well-shaped meshes.
 Examples
 --------
 
-To use the code, simply download it from below and run it from MATLAB
-or Octave. To run the examples below, type "distmesh_demo".
+To use the code, simply download the source code and run it from
+MATLAB or Octave. To run the examples below, type
+[distmesh_demo](https://github.com/precisesimulation/distmesh/blob/master/distmesh_demo.m)
 
 - Example 1: Uniform mesh on unit circle
 
