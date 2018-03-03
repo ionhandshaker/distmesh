@@ -230,8 +230,7 @@ while( it<it_max )
 
       [p,t,td] = l_triangulate( p, fd, dtrm_tol );
       t_tri = t_tri + td;
-      % [ p, t ] = constrain_edges( p, t, fpt, n_sdim, 1:n_p_fix );
-      % l_call_function( fpt )
+      l_call_function( fpt, p, t )
 
       p0  = p;
       n_p = size(p,1);
