@@ -4,10 +4,14 @@ DistMesh - A Simple Mesh Generator in MATLAB
 About
 -----
 
-Consolidated and refactored version of DistMesh. This version of
-DistMesh can also conveniently be used from a graphical user interface
-GUI together with the
-[FEATool Multiphysics MATLAB and Octave FEM Toolbox](https://www.featool.com).
+DistMesh is a simple MATLAB and
+[GNU Octave](https://www.gnu.org/software/octave/) code for generation
+of unstructured 2D triangular and 3D tetrahedral volume meshes.
+
+This repository contains a slightly modified, consolidated, and
+refactored version of DistMesh, which also can be used from a
+graphical user interface (GUI) together with the FEATool Multiphysics
+Octave and [Matlab PDE and FEM Toolbox](https://www.featool.com).
 
 <table align="center">
 <tr>
@@ -21,22 +25,27 @@ GUI together with the
 Description
 -----------
 
-DistMesh is a simple MATLAB and
-[GNU Octave](https://www.gnu.org/software/octave/) code for generation
-of unstructured 2D triangular and 3D tetrahedral meshes. It was
-developed by Per-Olof Persson and Gilbert Strang in the Department of
-Mathematics at MIT. A detailed description of the program is provided
-in the SIAM Review paper and other references linked below.
+The DistMesh code was invented by Per-Olof Persson and Gilbert Strang
+in the Department of Mathematics at MIT. More detailed descriptions of
+the original DistMesh algorithm can be found in the SIAM Review paper
+and other references linked below.
 
-One reason that the code is short and simple is that the geometries
-are specified by Signed Distance Functions (level set). These give the
+The simplicity of the DistMesh algorithm is due to using signed
+distance functions (level sets) to specify and describe domains,
+geometries, and regions to mesh. Distance functions specify the
 shortest distance from any point in space to the boundary of the
-domain. The sign is negative inside the region and positive outside. A
-simple example is the unit circle in two dimensions, which has the
-distance function _d = r-1_, where _r_ is the distance from the
-origin. For more complicated geometries the distance function can be
-computed by interpolation between values on a grid, a common
-representation for level set methods.
+domain, where the sign of the function is positive outside the region,
+negative inside, and zero on the boundary. This definition is used to
+identify if a point is located in or outside of the
+geometry. Moreover, the gradient of the distance function points in
+the direction of the boundary, allowing points outside to be
+efficiently moved back to the domain.
+
+A simple example is the unit circle in two dimensions, which has the
+distance function _d(r) = r-1_, where _r = sqrt(x^2+y^2)_ is the
+distance from the origin. For more complicated geometries the distance
+function can be computed by interpolation between values on a grid,
+which is a common representation for level set methods.
 
 For the mesh generation procedure, DistMesh uses the Delaunay
 triangulation routine in MATLAB and Octave and tries to optimize the
@@ -47,14 +56,86 @@ function. This iterative procedure typically results in very uniform
 and well-shaped high quality meshes.
 
 
+Modifications
+-------------
+
+In addition to cleanup, refactoring, and consolidation, this DistMesh
+implementation has been modified in the following ways:
+
+- CAD and GUI support (with the FEATool Multiphysics Toolbox)
+
+- 2D and 3D cases merged and handled in one code base.
+
+- Full support for both MATLAB and Octave.
+
+- Delaunay function selection depending on MATLAB or Octave version.
+
+- _fd_ and _fh_ can both be specified as function handles and as cell
+  arrays of a function handle/string names with optional calling
+  arguments.
+
+- Alternative optimized edge pair computation.
+
+- Optional number of re-tracing steps for grid points outside domain.
+
+- Added statistics and timing output.
+
+
+Usage
+-----
+
+To use the code, simply download the stand alone
+[distmesh](https://github.com/precisesimulation/distmesh/blob/master/distmesh.m)
+source code and run it in MATLAB or Octave. The function syntax is as follows
+
+    [ P, T, STAT ] = DISTMESH( FD, FH, H0, BBOX, P_FIX, IT_MAX, FID )
+
+where **FD** is a function handle to the geometry description that
+should take evaluation coordinates and points as input. For example
+<code>fd = @(p) sqrt(sum(p.^2,2)) - 1;</code> specifies the distance
+function for a unit circle (both function handles, string function
+names, and anonymous functions are supported). Similar to _FD_, **FH**
+a function describing the desired relative mesh size distribution. For
+example <code>fh = @(p) ones(size(p,1),1);</code> specifies a uniform
+distribution where _FH_ evaluates to _1_ at all points. **H0** is a
+numeric scalar specifying the initial edge lengths, and **BBOX** is a
+2 by 2 in 2D (or 2 by 3 in 3D) bounding box of the domain (enclosing
+the zero contour/level set of _FD_). **P_FIX** optionally specifies a
+number of points that should always be present (fixed) in the
+resulting mesh. **IT_MAX** sets the maximum number of grid generation
+iterations allowed (default _1000_).  Finally, **FID** specifies a
+file identifies for output (default _1_ = terminal output).
+
+The DistMesh function returns the grid point vertices in **P**,
+triangulated simplices in **T**, as well as an optional statistics
+struct **STAT** including timings and convergence information.
+
+    Input:
+
+       FD:        Distance function d(x,y,(z))
+       FH:        Scaled edge length function h(x,y,(z))
+       H0:        Initial edge length
+       BBOX:      Bounding box [xmin,ymin,(zmin); xmax,ymax,(zmax)]
+       P_FIX:     Fixed node positions (N_P_FIX x 2/3)
+       IT_MAX:    Maximum number of iterations
+       FID:       Output file id number (default 1 = terminal)
+
+    Output:
+
+       P:         Grid vertex/node coordinates (N_P x 2/3)
+       T:         Triangle indices (N_T x 3)
+       STAT:      Mesh generation statistics (struct)
+
+
+
 Examples
 --------
 
-To use the code, simply download the
-[distmesh](https://github.com/precisesimulation/distmesh/blob/master/distmesh.m)
-source code and run it in MATLAB or Octave. To run the collection of
-examples below, type
+To automatically run the collection of basic mesh generation examples
+described below, type
 [distmesh_demo](https://github.com/precisesimulation/distmesh/blob/master/distmesh_demo.m)
+into the MATLAB or Octave CLI command prompts from the directory where
+the _distmesh_ files can be found.
 
 - Example 1: Uniform mesh on unit circle
 
@@ -102,7 +183,6 @@ examples below, type
         fh = @(p) min(min(0.01+0.3*abs(dcircle(p,0,0,0)), ...
                           0.025+0.3*abs(dpolygon(p,[0.3,0.7;0.7,0.5;0.3,0.7]))),0.15);
         [p,t] = distmesh( fd, fh, 0.01, [0,0;1,1], [0,0;1,0;0,1;1,1] );
-
         patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 
 - Example 7: NACA0012 airfoil
@@ -160,8 +240,27 @@ References
 [4] [FEATool Multiphysics grid generation documentation](https://www.featool.com/doc/grid.html)
 
 
+Alternative Implementations
+---------------------------
+
+[5] [libDistMesh: A Simple Mesh Generator in C++](https://github.com/pgebhardt/libdistmesh)
+
+[6] [PyDistMesh - A Simple Mesh Generator in Python](https://github.com/bfroehle/pydistmesh)
+
+[7] [Mesh generator - Java implementation of Matlab DistMesh project](https://github.com/plichjan/jDistMesh)
+
+[8] [DistMesh - Wolfram Language Implementation](https://github.com/WolframResearch/DistMesh)
+
+[9] [J. Burkardt's DistMesh version](http://people.sc.fsu.edu/~jburkardt/m_src/distmesh/distmesh.html)
+
+[10] [KOKO Mesh Generator](http://fc.isima.fr/~jkoko/codes.html)
+
+
 License
 -------
 
-DistMesh is distributed under the GNU GPL; see the License and
-Copyright notice for more information.
+DistMesh is distributed for free under the GNU GPL; see the License
+and Copyright notice for more information.
+
+Modifications made to the original DistMesh code are copyrighted by
+Precise Simulation Limited and licensed under the GNU GPL License.

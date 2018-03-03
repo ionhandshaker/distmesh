@@ -1,7 +1,28 @@
 function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, fit )
-% DISTMESH Mesh Generator using Distance Functions.
+% DISTMESH 2D/3D Mesh generator using distance functions.
 %
 %   [ P, T, STAT ] = DISTMESH( FD, FH, H0, BBOX, P_FIX, IT_MAX, FID )
+%
+%   FD is a function handle to the geometry description that should
+%   take evaluation coordinates and points as input. For example fd =
+%   @(p) sqrt(sum(p.^2,2)) - 1; specifies the distance function for a
+%   unit circle (both function handles, string function names, and
+%   anonymous functions are supported). Similar to FD, FH a function
+%   describing the desired relative mesh size distribution. For
+%   example fh = @(p) ones(size(p,1),1); specifies a uniform
+%   distribution where FH evaluates to 1 at all points. H0 is a
+%   numeric scalar specifying the initial edge lengths, and BBOX is a
+%   2 by 2 in 2D (or 2 by 3 in 3D) bounding box of the domain
+%   (enclosing the zero contour/level set of FD). P_FIX optionally
+%   specifies a number of points that should always be present (fixed)
+%   in the resulting mesh. IT_MAX sets the maximum number of grid
+%   generation iterations allowed (default 1000). Finally, FID
+%   specifies a file identifies for output (default 1 = terminal
+%   output).
+%
+%   The distmesh function returns the grid point vertices in P,
+%   triangulated simplices in T, as well as an optional statistics
+%   struct STAT including timings and convergence information.
 %
 %   Input:
 %
@@ -11,34 +32,34 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %      BBOX:      Bounding box [xmin,ymin,(zmin); xmax,ymax,(zmax)]
 %      P_FIX:     Fixed node positions (N_P_FIX x 2/3)
 %      IT_MAX:    Maximum number of iterations
-%      FID:       Output file id number
+%      FID:       Output file id number (default 1 = terminal)
 %
 %   Output:
 %
-%      P:         Grid node coordinates (N_P x 2/3)
+%      P:         Grid vertex/node coordinates (N_P x 2/3)
 %      T:         Triangle indices (N_T x 3)
-%      STAT:      Mesh generation statistics struct
+%      STAT:      Mesh generation statistics (struct)
 %
 %
-%   Example: (Uniform mesh on unit circle)
+%   Example 1: (Uniform mesh on unit circle)
 %      fd = @(p) sqrt(sum(p.^2,2)) - 1;
 %      fh = @(p) ones(size(p,1),1);
 %      [p,t] = distmesh( fd, fh, 0.2, [-1,-1;1,1] );
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Uniform mesh on ellipse)
+%   Example 2: (Uniform mesh on ellipse)
 %      fd = @(p) p(:,1).^2/2^2 + p(:,2).^2/1^2 - 1;
 %      fh = @(p) ones(size(p,1),1);
 %      [p,t] = distmesh( fd, fh, 0.2, [-2,-1;2,1] );
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Uniform mesh on unit square)
+%   Example 3: (Uniform mesh on unit square)
 %      fd = @(p) -min(min(min(1+p(:,2),1-p(:,2)),1+p(:,1)),1-p(:,1));
 %      fh = @(p) ones(size(p,1),1);
 %      [p,t] = distmesh( fd, fh, 0.2, [-1,-1;1,1], [-1,-1;-1,1;1,-1;1,1] );
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Uniform mesh on complex polygon)
+%   Example 4: (Uniform mesh on complex polygon)
 %      pv = [-0.4 -0.5;0.4 -0.2;0.4 -0.7;1.5 -0.4;0.9 0.1;
 %            1.6 0.8;0.5 0.5;0.2 1;0.1 0.4;-0.7 0.7;-0.4 -0.5];
 %      fd = { 'l_dpolygon', [], pv };
@@ -46,24 +67,23 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %      [p,t] = distmesh( fd, fh, 0.1, [-1,-1; 2,1], pv );
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Rectangle with circular hole, refined at circle boundary)
+%   Example 5: (Rectangle with circular hole, refined at circle boundary)
 %      drectangle = @(p,x1,x2,y1,y2) -min(min(min(-y1+p(:,2),y2-p(:,2)),-x1+p(:,1)),x2-p(:,1));
 %      fd = @(p) max( drectangle(p,-1,1,-1,1), -(sqrt(sum(p.^2,2))-0.5) );
 %      fh = @(p) 0.05 + 0.3*(sqrt(sum(p.^2,2))-0.5);
 %      [p,t] = distmesh( fd, fh, 0.05, [-1,-1;1,1], [-1,-1;-1,1;1,-1;1,1] );
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Square, with size function point and line sources)
+%   Example 6: (Square, with size function point and line sources)
 %      dcircle = @(p,xc,yc,r) sqrt((p(:,1)-xc).^2+(p(:,2)-yc).^2)-r;
 %      fd = @(p) -min(min(min(p(:,2),1-p(:,2)),p(:,1)),1-p(:,1));
 %      dpolygon = @(p,v) feval('l_dpolygon',p,v);
 %      fh = @(p) min(min(0.01+0.3*abs(dcircle(p,0,0,0)), ...
 %                        0.025+0.3*abs(dpolygon(p,[0.3,0.7;0.7,0.5;0.3,0.7]))),0.15);
 %      [p,t] = distmesh( fd, fh, 0.01, [0,0;1,1], [0,0;1,0;0,1;1,1] );
-%
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (NACA0012 airfoil)
+%   Example 7: (NACA0012 airfoil)
 %      hlead = 0.01; htrail = 0.04; hmax = 2; circx = 2; circr = 4;
 %      a = 0.12/0.2*[0.2969,-0.126,-0.3516,0.2843,-0.1036];
 %      fd = @(p) max( dcircle(p,circx,0,circr), ...
@@ -78,14 +98,14 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %      [p,t] = distmesh( fd, fh, h0, bbox, pfix );
 %      patch( 'vertices', p, 'faces', t, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Uniform mesh on unit sphere)
+%   Example 8: (Uniform mesh on unit sphere)
 %      fd = @(p) sqrt(sum(p.^2,2)) - 1;
 %      fh = @(p) ones(size(p,1),1);
 %      [p,t] = distmesh( fd, fh, 0.2, [-1,-1,-1;1,1,1] );
 %      f = [t(:,[1:3]); t(:,[1,2,4]); t(:,[2,3,4]); t(:,[3,1,4])];
 %      patch( 'vertices', p, 'faces', f, 'facecolor', [.9, .9, .9] )
 %
-%   Example: (Uniform mesh on unit cube)
+%   Example 9: (Uniform mesh on unit cube)
 %      fd = @(p) -min(min(min(min(min(p(:,3),1-p(:,3) ),p(:,2)),1-p(:,2)),p(:,1)),1-p(:,1));
 %      fh = @(p) ones(size(p,1),1);
 %      pfix = [-1,-1,-1;-1,1,-1;1,-1,-1;1,1,-1; -1,-1,1;-1,1,1;1,-1,1;1,1,1];
@@ -93,7 +113,7 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %      f = [t(:,[1:3]); t(:,[1,2,4]); t(:,[2,3,4]); t(:,[3,1,4])];
 %      patch( 'vertices', p, 'faces', f, 'facecolor', [.9, .9, .9] ), view(3)
 %
-%   Example: (Uniform mesh on cylinder)
+%   Example 10: (Uniform mesh on cylinder)
 %      fd = @(p) -min(min(p(:,3),4-p(:,3)),1-sqrt(sum(p(:,1:2).^2,2)));
 %      fh = @(p) ones(size(p,1),1);
 %      pfix = [-1,-1,-1;-1,1,-1;1,-1,-1;1,1,-1; -1,-1,1;-1,1,1;1,-1,1;1,1,1];
@@ -101,9 +121,10 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %      f = [t(:,[1:3]); t(:,[1,2,4]); t(:,[2,3,4]); t(:,[3,1,4])];
 %      patch( 'vertices', p, 'faces', f, 'facecolor', [.9, .9, .9] ), view(3)
 %
-%   See also: DISTMESH_DEMO, DELAUNAY
+%   See also DISTMESH_DEMO, DELAUNAY.
 
 %   Copyright (C) 2004-2012 Per-Olof Persson. See COPYRIGHT.TXT for details.
+if( ~(nargin || nargout) ),help distmesh, return, end
 
 t0 = tic;
 if( nargin<9 )
@@ -131,6 +152,7 @@ IT_PRT  = 25;             % Output every IT_PRT iterations.
 
 N_RECV  = 2;              % Number of recovery iteration steps to move points outside back to boundary.
 N_DCF   = 30;             % Frequency of density control checks.
+F_DCF   = 3;              % Fraction of L to L_target to allow.
 n_sdim  = size(bbox,2);
 if( n_sdim==2 )
   dp_tol   = -0.001*h0;   % Abs point rejection tol (p(dist(p)>=dp0_tol) are rejected).
@@ -208,7 +230,8 @@ while( it<it_max )
 
       [p,t,td] = l_triangulate( p, fd, dtrm_tol );
       t_tri = t_tri + td;
-      l_call_function( fpt )
+      % [ p, t ] = constrain_edges( p, t, fpt, n_sdim, 1:n_p_fix );
+      % l_call_function( fpt )
 
       p0  = p;
       n_p = size(p,1);
@@ -251,9 +274,9 @@ while( it<it_max )
 
 
     % Density control, remove points that are too close to each other.
-    if( mod(it,N_DCF)==0 && any(L_target>2*L) )
+    if( mod(it,N_DCF)==0 && any(L_target>F_DCF*L) )
       n_dcs = n_dcs + 1;
-      p(setdiff(reshape(edge_pairs(L_target>2*L,:),[],1),1:n_p_fix),:) = [];
+      p(setdiff(reshape(edge_pairs(L_target>F_DCF*L,:),[],1),1:n_p_fix),:) = [];
       n_p = size(p,1);
       p0  = inf;
       continue;
@@ -372,9 +395,12 @@ end
 dist = l_call_function(fd,pc);
 t = t(dist<dtrm_tol,:);
 
+% Reorient simplices.
+av = l_simpvol( p, t );
+ix_flip = av<0;
+t(ix_flip,[1,2]) = t(ix_flip,[2,1]);
 
 % Remove simplices with volume < AV_TOL.
-av = l_simpvol( p, t );
 t(abs(av)<AV_TOL,:) = [];
 
 if( isempty(t) )
@@ -448,13 +474,6 @@ if( nargin>=2 )
   p = p( ind_p, : );
   ind_p = ix( ind_p );
 
-  % Check orientation (2D).
-  if( size(p,2)==2 )
-    if( size(t,2)==size(p,2)+1 )
-      ix_flip = l_simpvol(p,t)<0;
-      t(ix_flip,[1,2]) = t( ix_flip, [2,1] );
-    end
-  end
 end
 
 %------------------------------------------------------------------------------%
