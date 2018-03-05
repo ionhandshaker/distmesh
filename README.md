@@ -1,17 +1,18 @@
-DistMesh - A Simple Mesh Generator in MATLAB
-============================================
+DistMesh - A Simple Mesh Generator for MATLAB
+=============================================
 
-About
------
+About DistMesh
+--------------
 
 DistMesh is a simple MATLAB and
-[GNU Octave](https://www.gnu.org/software/octave/) code for generation
-of unstructured 2D triangular and 3D tetrahedral volume meshes.
+[GNU Octave](https://www.gnu.org/software/octave/) code for automatic
+generation of unstructured 2D triangular and 3D tetrahedral volume
+meshes.
 
 This repository contains a slightly modified, consolidated, and
 refactored version of DistMesh, which also can be used from a
 graphical user interface (GUI) together with the FEATool Multiphysics
-Octave and [Matlab PDE and FEM Toolbox](https://www.featool.com).
+Octave and [MATLAB PDE and FEM Toolbox](https://www.featool.com).
 
 <table align="center">
 <tr>
@@ -25,10 +26,11 @@ Octave and [Matlab PDE and FEM Toolbox](https://www.featool.com).
 Description
 -----------
 
-The DistMesh code was invented by Per-Olof Persson and Gilbert Strang
-in the Department of Mathematics at MIT. More detailed descriptions of
-the original DistMesh algorithm can be found in the SIAM Review paper
-and other references linked below.
+The DistMesh algorithm was invented by Per-Olof Persson and Gilbert
+Strang in the Department of Mathematics at MIT. More detailed
+descriptions of the original DistMesh method and MATLAB mesh
+generation code can be found in the SIAM Review paper and other
+references linked below.
 
 The simplicity of the DistMesh algorithm is due to using signed
 distance functions (level sets) to specify and describe domains,
@@ -62,13 +64,16 @@ Modifications
 In addition to cleanup, refactoring, and consolidation, this DistMesh
 implementation has been modified in the following ways:
 
-- CAD and GUI support (with the FEATool Multiphysics Toolbox)
+- CAD geometry and GUI support (with the FEATool Multiphysics Toolbox)
 
 - 2D and 3D cases merged and handled in one code base.
 
-- Full support for both MATLAB and Octave.
+- Full support for mesh generation in both MATLAB and Octave.
 
-- Delaunay function selection depending on MATLAB or Octave version.
+- Support for constrained edges (and constraint functions).
+
+- Delaunay function selection depending on MATLAB or Octave version
+  (with constrained Delaunay triangulation if available).
 
 - _fd_ and _fh_ can both be specified as function handles and as cell
   arrays of a function handle/string names with optional calling
@@ -84,11 +89,11 @@ implementation has been modified in the following ways:
 Usage
 -----
 
-To use the code, simply download the stand alone
+To use the this mesh generation code, simply download the stand alone
 [distmesh](https://github.com/precisesimulation/distmesh/blob/master/distmesh.m)
 source code and run it in MATLAB or Octave. The function syntax is as follows
 
-    [ P, T, STAT ] = DISTMESH( FD, FH, H0, BBOX, P_FIX, IT_MAX, FID )
+    [ P, T, STAT ] = DISTMESH( FD, FH, H0, BBOX, P_FIX, E_FIX, IT_MAX, FID, FIT )
 
 where **FD** is a function handle to the geometry description that
 should take evaluation coordinates and points as input. For example
@@ -102,11 +107,15 @@ numeric scalar specifying the initial edge lengths, and **BBOX** is a
 2 by 2 in 2D (or 2 by 3 in 3D) bounding box of the domain (enclosing
 the zero contour/level set of _FD_). **P_FIX** optionally specifies a
 number of points that should always be present (fixed) in the
-resulting mesh. **IT_MAX** sets the maximum number of grid generation
-iterations allowed (default _1000_).  Finally, **FID** specifies a
-file identifies for output (default _1_ = terminal output).
+resulting mesh. **E_FIX** can be sets of edge vertex indices to
+constrain, or alternatively a cell array with function handle to call.
+**IT_MAX** sets the maximum number of grid generation iterations
+allowed (default _1000_).  Finally, **FID** specifies a file
+identifies for output (default _1_ = terminal output), **FIT** is an
+optional % function to call every iteration to check for early
+termination.
 
-The DistMesh function returns the grid point vertices in **P**,
+The DistMesh MATLAB function returns the grid point vertices in **P**,
 triangulated simplices in **T**, as well as an optional statistics
 struct **STAT** including timings and convergence information.
 
@@ -117,6 +126,7 @@ struct **STAT** including timings and convergence information.
        H0:        Initial edge length
        BBOX:      Bounding box [xmin,ymin,(zmin); xmax,ymax,(zmax)]
        P_FIX:     Fixed node positions (N_P_FIX x 2/3)
+       E_FIX:     Constrained edges (N_E_FIX x 2)
        IT_MAX:    Maximum number of iterations
        FID:       Output file id number (default 1 = terminal)
 
@@ -235,7 +245,7 @@ References
 
 [2] [P.-O. Persson, Mesh Generation for Implicit Geometries. Ph.D. thesis, Department of Mathematics, MIT, Dec 2004.](http://persson.berkeley.edu/thesis/persson-thesis-color.pdf)
 
-[3] [DistMesh website](http://persson.berkeley.edu/distmesh/)
+[3] [P.-O. Persson's DistMesh website](http://persson.berkeley.edu/distmesh/)
 
 [4] [FEATool Multiphysics grid generation documentation](https://www.featool.com/doc/grid.html)
 
@@ -247,11 +257,11 @@ Alternative Implementations
 
 [6] [PyDistMesh - A Simple Mesh Generator in Python](https://github.com/bfroehle/pydistmesh)
 
-[7] [Mesh generator - Java implementation of Matlab DistMesh project](https://github.com/plichjan/jDistMesh)
+[7] [Mesh generator - Java implementation of DistMesh](https://github.com/plichjan/jDistMesh)
 
 [8] [DistMesh - Wolfram Language Implementation](https://github.com/WolframResearch/DistMesh)
 
-[9] [J. Burkardt's DistMesh version](http://people.sc.fsu.edu/~jburkardt/m_src/distmesh/distmesh.html)
+[9] [J. Burkardt's DistMesh repository](http://people.sc.fsu.edu/~jburkardt/m_src/distmesh/distmesh.html)
 
 [10] [KOKO Mesh Generator](http://fc.isima.fr/~jkoko/codes.html)
 

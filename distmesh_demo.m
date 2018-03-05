@@ -88,7 +88,8 @@ function [ p, t ] = distmesh_demo( cases, do_plot )
 %
 %   See also DISTMESH.
 
-%   Copyright (C) 2004-2012 Per-Olof Persson. See COPYRIGHT.TXT for details.
+%   Copyright (C) 2004-2012 Per-Olof Persson, 2018 Precise Simulation Limited.
+%   See COPYRIGHT.TXT for details.
 
 close all
 clc

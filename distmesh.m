@@ -1,7 +1,10 @@
-function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, fit )
-% DISTMESH 2D/3D Mesh generator using distance functions.
+function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, e_fix, it_max, fid, fit )
+% DISTMESH 2D/3D Mesh generation using distance functions.
 %
-%   [ P, T, STAT ] = DISTMESH( FD, FH, H0, BBOX, P_FIX, IT_MAX, FID )
+%   [ P, T, STAT ] = DISTMESH( FD, FH, H0, BBOX, P_FIX, E_FIX, IT_MAX, FID, FIT )
+%
+%   DistMesh is a simple surface (in 2D) and volume (in 3D) mesh gen-
+%   eration algorithm using distance functions to define geometries.
 %
 %   FD is a function handle to the geometry description that should
 %   take evaluation coordinates and points as input. For example fd =
@@ -15,14 +18,17 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %   2 by 2 in 2D (or 2 by 3 in 3D) bounding box of the domain
 %   (enclosing the zero contour/level set of FD). P_FIX optionally
 %   specifies a number of points that should always be present (fixed)
-%   in the resulting mesh. IT_MAX sets the maximum number of grid
-%   generation iterations allowed (default 1000). Finally, FID
-%   specifies a file identifies for output (default 1 = terminal
-%   output).
+%   in the resulting mesh. E_FIX can be sets of edge vertex indices to
+%   constrain, or alternatively a cell array with function handle to
+%   call. IT_MAX sets the maximum number of grid generation iterations
+%   allowed (default 1000). Finally, FID specifies a file identifies
+%   for output (default 1 = terminal output), FIT is an optional
+%   function to call every iteration to check for early termination.
 %
 %   The distmesh function returns the grid point vertices in P,
 %   triangulated simplices in T, as well as an optional statistics
 %   struct STAT including timings and convergence information.
+%
 %
 %   Input:
 %
@@ -31,8 +37,10 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %      H0:        Initial edge length
 %      BBOX:      Bounding box [xmin,ymin,(zmin); xmax,ymax,(zmax)]
 %      P_FIX:     Fixed node positions (N_P_FIX x 2/3)
+%      E_FIX:     Constrained edges (N_E_FIX x 2)
 %      IT_MAX:    Maximum number of iterations
 %      FID:       Output file id number (default 1 = terminal)
+%      FIT:       Optional iteration function call (default none)
 %
 %   Output:
 %
@@ -123,7 +131,8 @@ function [ p, t, stat ] = distmesh( fd, fh, h0, bbox, p_fix, it_max, fid, fpt, f
 %
 %   See also DISTMESH_DEMO, DELAUNAY.
 
-%   Copyright (C) 2004-2012 Per-Olof Persson. See COPYRIGHT.TXT for details.
+%   Copyright (C) 2004-2012 Per-Olof Persson, 2018 Precise Simulation Limited.
+%   See COPYRIGHT.TXT for details.
 if( ~(nargin || nargout) ),help distmesh, return, end
 
 t0 = tic;
@@ -131,13 +140,13 @@ if( nargin<9 )
   fit = [];
 end
 if( nargin<8 )
-  fpt = [];
-end
-if( nargin<7 )
   fid = 1;
 end
-if( nargin<6 )
+if( nargin<7 )
   it_max = 1000;
+end
+if( nargin<6 )
+  e_fix = [];
 end
 if( nargin<5 )
   p_fix = [];
@@ -148,23 +157,25 @@ end
 %------------------------------------------------------------------------------%
 IALG    = 2;              % Optimized algorithm selection.
 IT_MIN  = 20;             % Minimum number of iterations.
+IT_MINC = 50;             % Minimum number of iter. after which to call constraint function.
 IT_PRT  = 25;             % Output every IT_PRT iterations.
 
 N_RECV  = 2;              % Number of recovery iteration steps to move points outside back to boundary.
 N_DCF   = 30;             % Frequency of density control checks.
-F_DCF   = 3;              % Fraction of L to L_target to allow.
 n_sdim  = size(bbox,2);
 if( n_sdim==2 )
   dp_tol   = -0.001*h0;   % Abs point rejection tol (p(dist(p)>=dp0_tol) are rejected).
   dtrm_tol = -0.001*h0;   % Abs dist tol for tri rejection (t(dist(p_tcent)>=dtrm_tol) are rejected).
   rt_tol   =  0.3;        % Rel fraction of h0 to trigger retriangulation.
   F_scale  =  1.2;        % Rel force scaling factor.
+  F_DCF    =  2;          % Fraction of L to L_target to allow.
   dp_scale =  0.2;        % Rel fraction of computed new distance to move points in update step.
 else
   dp_tol   = -0.1*h0;
   dtrm_tol = -0.1*h0;
   rt_tol   =  0.1;
   F_scale  =  1.1;
+  F_DCF    =  2.1;
   dp_scale =  0.1;
 end
 dpc_tol = 0.001*h0;       % Abs tol for grid point movements during convergence check.
@@ -212,13 +223,14 @@ n_p = size( p, 1 );
 l_message( fid, 'Grid generation (DistMesh):' )
 t1 = tic;
 if( it_max<=0 )
-  t = l_delaunay_triangulation( p );
+  t = l_delaunay_triangulation( p, e_fix );
 end
 t_tri = toc(t1);
 it = 0;
 p0 = inf;
 n_tri = 0;
 n_dcs = 0;
+do_break = false;
 is_converged = false;
 while( it<it_max )
     it = it + 1;
@@ -228,20 +240,22 @@ while( it<it_max )
     if( rt_tol*h0<delta_p_max )
       n_tri = n_tri + 1;
 
-      [p,t,td] = l_triangulate( p, fd, dtrm_tol );
-      t_tri = t_tri + td;
-      l_call_function( fpt, p, t )
-
+      [p,t,td] = l_triangulate( p, fd, e_fix, dtrm_tol );
+      if( iscell(e_fix) && it>IT_MINC )
+        [p,t] = l_call_function( e_fix, p, t, n_sdim, 1:n_p_fix );
+      end
       p0  = p;
       n_p = size(p,1);
+      t_tri = t_tri + td;
+
       % clf, l_plot(p,t), title(['retriangulated mesh ',num2str(n_tri)]), drawnow, pause
 
       % Describe each edge by a unique edge_pairs of nodes.
       if( IALG<=1 )
         edge_pairs = zeros(0,2);
-        localedge_pairs = nchoosek(1:(n_sdim+1),2);
-        for ii=1:size(localedge_pairs,1)
-          edge_pairs = [edge_pairs;t(:,localedge_pairs(ii,:))];
+        local_edge_pairs = nchoosek(1:(n_sdim+1),2);
+        for i=1:size(local_edge_pairs,1)
+          edge_pairs = [edge_pairs;t(:,local_edge_pairs(i,:))];
         end
         edge_pairs = unique(sort(edge_pairs,2),'rows');
       else
@@ -325,14 +339,16 @@ while( it<it_max )
     % Statistics/output.
     delta_p_max = abs( max( [sqrt(sum(delta_p(dist<dp_tol,:).^2,2)); -inf] ) );
     if( ~mod(it,IT_PRT) )
-      l_call_function( fit, it )
       s = sprintf( 'Iteration %4i: %i vertices, %i cells, max(delta_p) = %g\n', it, size(p,1), size(t,1), delta_p_max );
       l_message( fid, s )
+      if( ~isempty(fit) )
+        do_break = l_call_function( fit, it );
+      end
     end
 
 
     % Check for convergence.
-    if( (it>IT_MIN && delta_p_max<dpc_tol) || size(t,1)<=2 || it>it_max )
+    if( (it>IT_MIN && delta_p_max<dpc_tol) || size(t,1)<=2 || it>it_max || do_break )
       if( delta_p_max<dpc_tol )
         is_converged = true;
       end
@@ -344,7 +360,7 @@ end
 
 
 % Clean up and check final mesh.
-[p,t,td] = l_fixmesh( p, t, fd, dtrm_tol );
+[p,t,td] = l_fixmesh( p, t, fd, e_fix, dtrm_tol );
 t_tri = t_tri + td;
 
 
@@ -361,15 +377,24 @@ if( nargout>=3 )
   stat.ttri = t_tri;
 end
 
+if( do_break )
+  s = 'stopped';
+else
+  s = 'done';
+end
+s = sprintf( 'Mesh generation %s: t_tot = %f s, %i iterations, %i (re-)triangulations\n', ...
+             s, t_tot, it, n_tri );
 
-s = sprintf( 'Mesh generation done: t_tot = %f s, %i iterations, %i (re-)triangulations\n', ...
-             t_tot, it, n_tri );
 l_message( fid, s )
 % clf, l_plot(p,t), title('final mesh'), drawnow, pause
 
 
 %------------------------------------------------------------------------------%
-function [ p, t, td ] = l_triangulate( p, fd, dtrm_tol )
+function [ p, t, td ] = l_triangulate( p, fd, e_fix, dtrm_tol )
+
+if( nargin<3 )
+  e_fix = [];
+end
 
 AV_TOL = eps*1e1;   % Minimum accepted absolute area/volume.
 
@@ -380,7 +405,7 @@ p = l_deduplicate( p );
 
 % Generate triangulation for grid points p.
 t1 = tic;
-t = l_delaunay_triangulation( p );
+t = l_delaunay_triangulation( p, e_fix );
 td = toc(t1);
 
 
@@ -403,18 +428,37 @@ t(ix_flip,[1,2]) = t(ix_flip,[2,1]);
 t(abs(av)<AV_TOL,:) = [];
 
 if( isempty(t) )
-  t = l_delaunay_triangulation( p );
+  t = l_delaunay_triangulation( p, e_fix );
 end
 
 %------------------------------------------------------------------------------%
-function [ t ] = l_delaunay_triangulation( p )
+function [ t ] = l_delaunay_triangulation( p, c )
 
+if( nargin<2 )
+  c = [];
+end
+
+IS_WARN       = false;
 USE_DELAUNAYN = true;
+IS_CONSTR     = isnumeric(c) & ~isempty(c);
 
 if( size(p,2)==3 && USE_DELAUNAYN )
   t = delaunayn( p );
 else
-  if( exist('DelaunayTri') )
+  if( ~isempty(c) && IS_CONSTR && exist('DelaunayTriangulation') && size(p,2)==2 )
+    try
+      if( ~IS_WARN )
+        warning('off','MATLAB:delaunayTriangulation:ConsSplitPtWarnId')
+      end
+      t = delaunayTriangulation( p, c );
+      if( ~IS_WARN )
+        warning('on','MATLAB:delaunayTriangulation:ConsSplitPtWarnId')
+      end
+    catch
+      t = delaunay( p );
+    end
+
+  elseif( exist('DelaunayTri') )
 
     if( size(p,2)==3 )
       t = DelaunayTri( p(:,1), p(:,2), p(:,3) );
@@ -437,9 +481,12 @@ end
 if( isa(t,'DelaunayTri') )
   t = t.Triangulation;
 end
+if( isa(t,'delaunayTriangulation') )
+  t = t.ConnectivityList;
+end
 
 %------------------------------------------------------------------------------%
-function [ p, t, td, ind_p ] = l_fixmesh( p, t, fd, dtrm_tol )
+function [ p, t, td, ind_p ] = l_fixmesh( p, t, fd, e_fix, dtrm_tol )
 % FIXMESH Remove duplicated/unused nodes and fix element orientation.
 
 if( nargin>=2 && (isempty(p) || isempty(t)) )
@@ -455,7 +502,7 @@ if( nargin>=2 )
   t = ind_p_orig(t);
 
   % Final triangulation.
-  [p,t,td] = l_triangulate( p, fd, dtrm_tol );
+  [p,t,td] = l_triangulate( p, fd, e_fix, dtrm_tol );
 
   % Calculate simplex centers.
   pc = [];
@@ -531,12 +578,19 @@ end
 b = a(i,:);
 
 %------------------------------------------------------------------------------%
-function [ dist ] = l_call_function( fun, varargin )
+function [ varargout ] = l_call_function( fun, varargin )
 
 if( isa(fun,'function_handle') )
-  dist = fun( varargin{:} );
+
+  varargout = cell(1,max(1,nargout(fun)));
+  [varargout{:}] = fun( varargin{:} );
+
 elseif( iscell(fun) && (isa(fun{1},'function_handle') || ischar(fun{1})) )
   args = fun(2:end);
+  fun  = fun{1};
+  if( ischar(fun) )
+    fun = str2func(fun);
+  end
 
   empty_pos = find(cellfun(@isempty,args));
   if( ~isempty(empty_pos) )
@@ -551,12 +605,13 @@ elseif( iscell(fun) && (isa(fun{1},'function_handle') || ischar(fun{1})) )
     args = [ varargin, args ];
   end
 
-  if( ischar(fun{1}) )
-    dist = feval( fun{1}, args{:} );
-  else
-    dist = fun{1}( args{:} );
-  end
+  varargout = cell(1,max(1,nargout(fun)));
+  [varargout{:}] = fun( args{:} );
 
+end
+
+if( nargout>0 && ~iscell(varargout) )
+  varargout = { varargout };
 end
 
 %------------------------------------------------------------------------------%

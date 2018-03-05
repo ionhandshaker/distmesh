@@ -1,6 +1,6 @@
 DistMesh is a collection of MATLAB functions for generation and
 manipulation of unstructured meshes. DistMesh is Copyright (C) 2004-2012
-Per-Olof Persson.
+Per-Olof Persson and (C) 2018 Precise Simulation Limited.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
