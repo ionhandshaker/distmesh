@@ -153,7 +153,7 @@ if( nargin<5 )
 end
 
 %------------------------------------------------------------------------------%
-% Initializations and meshing parameters.
+% Initialization and meshing parameters.
 %------------------------------------------------------------------------------%
 IALG    = 2;              % Optimized algorithm selection.
 IT_MIN  = 20;             % Minimum number of iterations.
@@ -561,7 +561,7 @@ end
 if( nargin>=2 )
   s = atol;
 else
-  TOL = eps*1e3;
+  TOL = 1e-6;
   s = TOL*max(max(a)-min(a));
 end
 [c,k] = sortrows(s*round(a/s));

@@ -14,6 +14,9 @@ refactored version of DistMesh, which also can be used from a
 graphical user interface (GUI) together with the FEATool Multiphysics
 Octave and [MATLAB PDE and FEM Toolbox](https://www.featool.com).
 
+Note that a Julia implementation of this DistMesh version is also
+available in the [DistMesh-Julia repository](https://github.com/precisesimulation/distmesh-julia).
+
 <table align="center">
 <tr>
 <td width="30%"><img src="https://www.featool.com/images/featool-multiphysics-easy-to-use-gui.jpg" style="width:100%"></td>
@@ -255,15 +258,17 @@ Alternative Implementations
 
 [5] [libDistMesh: A Simple Mesh Generator in C++](https://github.com/pgebhardt/libdistmesh)
 
-[6] [PyDistMesh - A Simple Mesh Generator in Python](https://github.com/bfroehle/pydistmesh)
+[6] [DistMesh-Julia - Julia Mesh Generation with DistMesh](https://github.com/precisesimulation/distmesh-julia)
 
-[7] [Mesh generator - Java implementation of DistMesh](https://github.com/plichjan/jDistMesh)
+[7] [PyDistMesh - A Simple Mesh Generator in Python](https://github.com/bfroehle/pydistmesh)
 
-[8] [DistMesh - Wolfram Language Implementation](https://github.com/WolframResearch/DistMesh)
+[8] [Mesh generator - Java implementation of DistMesh](https://github.com/plichjan/jDistMesh)
 
-[9] [J. Burkardt's DistMesh repository](http://people.sc.fsu.edu/~jburkardt/m_src/distmesh/distmesh.html)
+[9] [DistMesh - Wolfram Language Implementation](https://github.com/WolframResearch/DistMesh)
 
-[10] [KOKO Mesh Generator](http://fc.isima.fr/~jkoko/codes.html)
+[10] [J. Burkardt's DistMesh repository](http://people.sc.fsu.edu/~jburkardt/m_src/distmesh/distmesh.html)
+
+[11] [KOKO Mesh Generator](http://fc.isima.fr/~jkoko/codes.html)
 
 
 License
