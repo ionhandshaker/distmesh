@@ -15,7 +15,10 @@ graphical user interface (GUI) together with the FEATool Multiphysics
 Octave and [MATLAB PDE and FEM Toolbox](https://www.featool.com).
 
 Note that a Julia implementation of this DistMesh version is also
-available in the [DistMesh-Julia repository](https://github.com/precisesimulation/distmesh-julia).
+available in the
+[DistMesh-Julia repository](https://github.com/precisesimulation/distmesh-julia)
+as well as
+[QuadMesh - unstructured quadrilateral mesh generation based on distance functions](https://github.com/precisesimulation/quadmesh).
 
 <table align="center">
 <tr>
